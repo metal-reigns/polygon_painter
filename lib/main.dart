@@ -6,6 +6,6 @@ import 'package:provider/provider.dart';
 void main() => runApp(
       ChangeNotifierProvider(
         create: (context) => PolygonProvider(),
-        child: MyApp(),
+        child: const MyApp(),
       ),
     );

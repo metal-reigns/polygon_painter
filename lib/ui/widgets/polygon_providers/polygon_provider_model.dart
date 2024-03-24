@@ -2,17 +2,40 @@ import 'package:flutter/material.dart';
 
 class PolygonProvider with ChangeNotifier {
   List<Offset> _points = [];
+  List<Offset> get points => _points;
+  List<Offset> _redoStack = [];
+
   Offset? _temporaryPoint; // Для рисования временной линии
 
-  List<Offset> get points => _points;
   Offset? get temporaryPoint => _temporaryPoint;
 
   // Начинаем рисование новой линии
   void startDrawing(Offset point) {
     if (!isPolygonClosed()) {
       _temporaryPoint = point;
+      _redoStack.clear();
       notifyListeners();
     }
+  }
+
+  void undo() {
+    if (_points.isNotEmpty) {
+      _redoStack.add(_points.removeLast());
+      notifyListeners();
+    }
+  }
+
+  void redo() {
+    if (_redoStack.isNotEmpty) {
+      _points.add(_redoStack.removeLast());
+      notifyListeners();
+    }
+  }
+
+  void clearDrawing() {
+    _points.clear();
+    _redoStack.clear();
+    notifyListeners();
   }
 
   // Обновляем текущую рисуемую линию
@@ -20,23 +43,6 @@ class PolygonProvider with ChangeNotifier {
     _temporaryPoint = point;
     notifyListeners();
   }
-
-  // Завершаем рисование линии и добавляем новую точку
-  // void endDrawing() {
-  //   if (_temporaryPoint != null) {
-  //     // Проверяем, достаточно ли точек для создания линии и не вызовет ли добавление новой точки пересечение
-  //     if (_points.length > 1 &&
-  //         _isLineCrossWithOthers(_temporaryPoint!, _points.length - 2)) {
-  //       // Если новая линия пересекается, не добавляем точку
-  //       _temporaryPoint = null;
-  //     } else {
-  //       // Если все хорошо, добавляем точку
-  //       _points.add(_temporaryPoint!);
-  //       _temporaryPoint = null;
-  //     }
-  //     notifyListeners();
-  //   }
-  // }
 
   void endDrawing() {
     if (_temporaryPoint != null) {
@@ -54,28 +60,14 @@ class PolygonProvider with ChangeNotifier {
 
   bool _isClosingFigure(Offset point) {
     if (_points.isEmpty) return false;
-    return (point - _points.first).distance <
-        30.0; // Пороговое значение для замыкания фигуры
-  }
-
-  // Добавляем точку
-  void addPoint(Offset point) {
-    _points.add(point);
-    notifyListeners();
-  }
-
-  // Удаляем последнюю точку
-  void removeLastPoint() {
-    if (_points.isNotEmpty) {
-      _points.removeLast();
-      notifyListeners();
-    }
+    return (point - _points.first).distance < 30.0;
   }
 
   // Проверяем, создаст ли новая линия пересечение с уже существующими линиями
   bool _isLineCrossWithOthers(Offset newPoint, int ignoreIndex) {
-    if (_points.length < 2)
-      return false; // Нужно минимум две точки для сравнения
+    if (_points.length < 2) {
+      return false;
+    }
 
     for (int i = 0; i < _points.length - 1; i++) {
       if (i != ignoreIndex && i + 1 != ignoreIndex) {
@@ -111,8 +103,7 @@ class PolygonProvider with ChangeNotifier {
   }
 
   // Получаем длину линии между двумя точками
-  double getLineLength(int index) {
-    if (index < 0 || index >= _points.length - 1) return 0.0;
-    return (_points[index] - _points[index + 1]).distance;
+  double getLineLength(Offset p1, Offset p2) {
+    return (p1 - p2).distance;
   }
 }

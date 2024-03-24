@@ -4,7 +4,7 @@ class PolygonPainter extends CustomPainter {
   final List<Offset> points;
   final Offset? temporaryPoint;
   final bool isClosed;
-  final Function(int) getLineLength;
+  final Function(Offset, Offset) getLineLength;
 
   PolygonPainter({
     required this.points,
@@ -16,7 +16,7 @@ class PolygonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = isClosed ? Colors.white : Colors.black
+      ..color = Colors.black
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
 
@@ -31,10 +31,10 @@ class PolygonPainter extends CustomPainter {
       } else {
         path.lineTo(points[i].dx, points[i].dy);
 
-        // Отображение длины линии
+        // Расчет и отображение длины каждого отрезка
         final textSpan = TextSpan(
-          text: '${getLineLength(i - 1).toStringAsFixed(2)}',
-          style: const TextStyle(color: Colors.black, fontSize: 12),
+          text: '${(points[i] - points[i - 1]).distance.toStringAsFixed(2)}',
+          style: TextStyle(color: Colors.black, fontSize: 12),
         );
         textPainter.text = textSpan;
         textPainter.layout();
@@ -47,12 +47,41 @@ class PolygonPainter extends CustomPainter {
       }
     }
 
-    if (temporaryPoint != null && points.isNotEmpty) {
-      path.lineTo(temporaryPoint!.dx, temporaryPoint!.dy);
+    // Замыкание и заливка фигуры, если она замкнута
+    if (isClosed && points.isNotEmpty) {
+      path.close();
+      paint.color = Colors.white;
+      paint.style = PaintingStyle.fill;
+      canvas.drawPath(path, paint);
+
+      paint.color = Colors.black;
+      paint.style = PaintingStyle.stroke;
+      canvas.drawPath(path, paint);
+    } else {
+      canvas.drawPath(path, paint);
     }
 
-    canvas.drawPath(path, paint);
+    // Рисование временной линии и отображение её длины
+    if (temporaryPoint != null && points.isNotEmpty) {
+      paint.color = Colors.black;
+      paint.style = PaintingStyle.stroke;
+      canvas.drawLine(points.last, temporaryPoint!, paint);
 
+      final textSpan = TextSpan(
+        text: (points.last - temporaryPoint!).distance.toStringAsFixed(2),
+        style: const TextStyle(color: Colors.black, fontSize: 12),
+      );
+      textPainter.text = textSpan;
+      textPainter.layout();
+      final midPoint = Offset(
+        (points.last.dx + temporaryPoint!.dx) / 2,
+        (points.last.dy + temporaryPoint!.dy) / 2,
+      );
+      textPainter.paint(canvas,
+          midPoint - Offset(textPainter.width / 2, textPainter.height / 2));
+    }
+
+    // Рисуем точки поверх всего
     for (var point in points) {
       canvas.drawCircle(point, 5, Paint()..color = Colors.black);
     }
