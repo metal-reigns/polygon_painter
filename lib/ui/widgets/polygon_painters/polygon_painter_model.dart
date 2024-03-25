@@ -1,92 +1,130 @@
 import 'package:flutter/material.dart';
 
-class PolygonPainter extends CustomPainter {
-  final List<Offset> points;
-  final Offset? temporaryPoint;
-  final bool isClosed;
-  final Function(Offset, Offset) getLineLength;
+class PolygonProvider with ChangeNotifier {
+  final List<Offset> _points = [];
+  List<Offset> get points => _points;
+  Offset? _temporaryPoint;
 
-  PolygonPainter({
-    required this.points,
-    required this.getLineLength,
-    this.temporaryPoint,
-    this.isClosed = false,
-  });
+  Offset? get temporaryPoint => _temporaryPoint;
+  final List<Offset> _redoStack = [];
+  int? _selectedPointIndex;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    var path = Path();
-    TextPainter textPainter = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
-
-    for (int i = 0; i < points.length; i++) {
-      if (i == 0) {
-        path.moveTo(points[i].dx, points[i].dy);
-      } else {
-        path.lineTo(points[i].dx, points[i].dy);
-
-        // Расчет и отображение длины каждого отрезка
-        final textSpan = TextSpan(
-          text: '${(points[i] - points[i - 1]).distance.toStringAsFixed(2)}',
-          style: TextStyle(color: Colors.black, fontSize: 12),
-        );
-        textPainter.text = textSpan;
-        textPainter.layout();
-        final midPoint = Offset(
-          (points[i].dx + points[i - 1].dx) / 2,
-          (points[i].dy + points[i - 1].dy) / 2,
-        );
-        textPainter.paint(canvas,
-            midPoint - Offset(textPainter.width / 2, textPainter.height / 2));
-      }
-    }
-
-    // Замыкание и заливка фигуры, если она замкнута
-    if (isClosed && points.isNotEmpty) {
-      path.close();
-      paint.color = Colors.white;
-      paint.style = PaintingStyle.fill;
-      canvas.drawPath(path, paint);
-
-      paint.color = Colors.black;
-      paint.style = PaintingStyle.stroke;
-      canvas.drawPath(path, paint);
-    } else {
-      canvas.drawPath(path, paint);
-    }
-
-    // Рисование временной линии и отображение её длины
-    if (temporaryPoint != null && points.isNotEmpty) {
-      paint.color = Colors.black;
-      paint.style = PaintingStyle.stroke;
-      canvas.drawLine(points.last, temporaryPoint!, paint);
-
-      final textSpan = TextSpan(
-        text: (points.last - temporaryPoint!).distance.toStringAsFixed(2),
-        style: const TextStyle(color: Colors.black, fontSize: 12),
-      );
-      textPainter.text = textSpan;
-      textPainter.layout();
-      final midPoint = Offset(
-        (points.last.dx + temporaryPoint!.dx) / 2,
-        (points.last.dy + temporaryPoint!.dy) / 2,
-      );
-      textPainter.paint(canvas,
-          midPoint - Offset(textPainter.width / 2, textPainter.height / 2));
-    }
-
-    // Рисуем точки поверх всего
-    for (var point in points) {
-      canvas.drawCircle(point, 5, Paint()..color = Colors.black);
+  void startDrawing(Offset point) {
+    if (!isPolygonClosed()) {
+      _temporaryPoint = point;
+      _redoStack.clear();
+      notifyListeners();
     }
   }
 
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
+  void undo() {
+    if (_points.isNotEmpty) {
+      _redoStack.add(_points.removeLast());
+      notifyListeners();
+    }
+  }
+
+  void redo() {
+    if (_redoStack.isNotEmpty) {
+      _points.add(_redoStack.removeLast());
+      notifyListeners();
+    }
+  }
+
+  void clearDrawing() {
+    _points.clear();
+    _redoStack.clear();
+    notifyListeners();
+  }
+
+  void updateDrawing(Offset point) {
+    _temporaryPoint = point;
+    notifyListeners();
+  }
+
+  void endDrawing() {
+    if (_temporaryPoint != null) {
+      if (_isClosingFigure(_temporaryPoint!)) {
+        _points.add(_points.first);
+        notifyListeners();
+      } else if (!_isLineCrossWithOthers(
+          _temporaryPoint!, _points.length - 1)) {
+        _points.add(_temporaryPoint!);
+        notifyListeners();
+      }
+      _temporaryPoint = null;
+    }
+  }
+
+  bool _isClosingFigure(Offset point) {
+    if (_points.isEmpty) return false;
+    return (point - _points.first).distance < 30.0;
+  }
+
+  // Проверяем, создаст ли новая линия пересечение с уже существующими линиями
+  bool _isLineCrossWithOthers(Offset newPoint, int ignoreIndex) {
+    if (_points.length < 2) {
+      return false;
+    }
+
+    for (int i = 0; i < _points.length - 1; i++) {
+      if (i != ignoreIndex && i + 1 != ignoreIndex) {
+        if (_isLineCross(
+            _points[i], _points[i + 1], _points[ignoreIndex], newPoint)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool _isLineCross(Offset p1, Offset p2, Offset p3, Offset p4) {
+    double denominator =
+        (p4.dy - p3.dy) * (p2.dx - p1.dx) - (p4.dx - p3.dx) * (p2.dy - p1.dy);
+
+    // Если знаменатель равен нулю, линии параллельны или совпадают
+    if (denominator == 0) return false;
+
+    double ua = ((p4.dx - p3.dx) * (p1.dy - p3.dy) -
+            (p4.dy - p3.dy) * (p1.dx - p3.dx)) /
+        denominator;
+    double ub = ((p2.dx - p1.dx) * (p1.dy - p3.dy) -
+            (p2.dy - p1.dy) * (p1.dx - p3.dx)) /
+        denominator;
+
+    return (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1);
+  }
+
+  // Проверяем, замкнут ли многоугольник
+  bool isPolygonClosed() {
+    return _points.isNotEmpty && _points.first == _points.last;
+  }
+
+  // Получаем длину линии между двумя точками
+  double getLineLength(Offset p1, Offset p2) {
+    return (p1 - p2).distance;
+  }
+
+  void selectPoint(Offset point) {
+    const double touchPrecision = 10.0;
+    for (int i = 0; i < _points.length; i++) {
+      if ((point - _points[i]).distance <= touchPrecision) {
+        _selectedPointIndex = i;
+        return;
+      }
+    }
+  }
+
+  void moveSelectedPoint(Offset newPoint) {
+    if (_selectedPointIndex != null) {
+      _points[_selectedPointIndex!] = newPoint;
+      notifyListeners();
+    }
+  }
+
+  void releaseSelectedPoint() async {
+    _selectedPointIndex = null;
+    await Future.delayed(const Duration(milliseconds: 50));
+    notifyListeners();
+  }
 }

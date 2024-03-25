@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:polygon_painter/ui/widgets/polygon_painters/painter_background.dart';
-import 'package:polygon_painter/ui/widgets/polygon_painters/polygon_painter_model.dart';
-import 'package:polygon_painter/ui/widgets/polygon_providers/polygon_provider_model.dart';
 import 'package:provider/provider.dart';
+import 'package:polygon_painter/ui/widgets/polygon_painters/polygon_drawing_widget.dart';
+import 'package:polygon_painter/ui/widgets/polygon_background/painter_background.dart';
+import 'package:polygon_painter/ui/widgets/polygon_painters/polygon_painter_model.dart';
 
-class PolygonDrawingWidget extends StatefulWidget {
-  const PolygonDrawingWidget({super.key});
+class PolygonPainterWidget extends StatefulWidget {
+  const PolygonPainterWidget({super.key});
 
   @override
-  _PolygonDrawingWidgetState createState() => _PolygonDrawingWidgetState();
+  _PolygonPainterWidgetState createState() => _PolygonPainterWidgetState();
 }
 
-class _PolygonDrawingWidgetState extends State<PolygonDrawingWidget> {
+class _PolygonPainterWidgetState extends State<PolygonPainterWidget> {
   @override
   Widget build(BuildContext context) {
     return Consumer<PolygonProvider>(
@@ -19,18 +19,21 @@ class _PolygonDrawingWidgetState extends State<PolygonDrawingWidget> {
         return GestureDetector(
           onPanStart: (details) {
             provider.startDrawing(details.localPosition);
+            provider.selectPoint(details.localPosition);
           },
           onPanUpdate: (details) {
             provider.updateDrawing(details.localPosition);
+            provider.moveSelectedPoint(details.localPosition);
           },
           onPanEnd: (details) {
             provider.endDrawing();
+            provider.releaseSelectedPoint();
           },
           child: Column(
             children: [
               Expanded(
                 child: CustomPaint(
-                  painter: PolygonPainter(
+                  painter: PolygonDrawingWidget(
                     points: provider.points,
                     getLineLength: provider.getLineLength,
                     temporaryPoint: provider.temporaryPoint,

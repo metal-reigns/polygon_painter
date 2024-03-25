@@ -26,7 +26,7 @@ class PainterBackground extends CustomPainter {
       ..color = Colors.blueGrey
       ..strokeCap = StrokeCap.round;
 
-    double dotSize = 1.5; // Размер точки
+    double dotSize = 1.5;
     // Расстояние между точками адаптируется к ширине и высоте экрана
     double stepX = size.width / MediaQuery.of(context).size.width * 15;
     double stepY = size.height / MediaQuery.of(context).size.height * 20;
