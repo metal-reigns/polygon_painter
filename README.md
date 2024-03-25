@@ -5,9 +5,7 @@
 This Flutter app allows users to draw and edit polygons on a canvas. Users can create shapes by connecting lines and dynamically see the length of each line segment.
 Once a shape is closed, it is filled with white color. The app includes features for undoing and redoing actions, as well as the ability to move and adjust the vertices of the completed polygon.
 
-<img src="Screenshot_20240325_144933.png" width="500">
-
-<img src="polygon_video.gif" width="500">
+<img src="Screenshot_20240325_144933.png" width="300"> <img src="polygon_video.gif" width="300">
 
 ## Features
 
